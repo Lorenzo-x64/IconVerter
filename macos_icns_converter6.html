@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Icon Converter — macOS .icns</title>
+<style>
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Tokens ─── */
+:root {
+  --bg:              #e8e8ed;
+  --window-bg:       rgba(246,246,248,0.88);
+  --surface:         rgba(255,255,255,0.75);
+  --surface-up:      rgba(255,255,255,0.95);
+  --surface-down:    rgba(0,0,0,0.04);
+  --border:          rgba(0,0,0,0.08);
+  --border-up:       rgba(0,0,0,0.14);
+  --text:            #1c1c1e;
+  --text-2:          #6e6e73;
+  --text-3:          #aeaeb2;
+  --accent:          #007aff;
+  --accent-dark:     #0062cc;
+  --accent-fg:       #fff;
+  --ok:              #30b84e;
+  --ok-dim:          rgba(48,184,78,0.15);
+  --shadow-window:   0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(0,0,0,0.14);
+  --shadow-card:     0 0 0 0.5px var(--border-up);
+  --r-sm:            6px;
+  --r-md:            10px;
+  --r-lg:            14px;
+  --r-xl:            22px;
+  --font:            -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:       "SF Mono", "Menlo", "Monaco", monospace;
+
+  /* Traffic Light Colors */
+  --close-red:                     #ff6159;
+  --close-red-active:              #bf4942;
+  --close-red-icon:                #4d0000;
+  --close-red-icon-active:         #190000;
+  --minimize-yellow:               #ffbd2e;
+  --minimize-yellow-active:        #bf8e22;
+  --minimize-yellow-icon:          #995700;
+  --minimize-yellow-icon-active:   #592800;
+  --maximize-green:                #28c941;
+  --maximize-green-active:         #1d9730;
+  --maximize-green-icon:           #006500;
+  --maximize-green-icon-active:    #003200;
+  --disabled-gray:                 #ddd;
+  --inactive-gray:                 #c8c8c8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:              #141416;
+    --window-bg:       rgba(30,30,32,0.90);
+    --surface:         rgba(44,44,48,0.80);
+    --surface-up:      rgba(56,56,60,0.95);
+    --surface-down:    rgba(0,0,0,0.35);
+    --border:          rgba(255,255,255,0.07);
+    --border-up:       rgba(255,255,255,0.14);
+    --text:            #f2f2f7;
+    --text-2:          rgba(235,235,245,0.68);
+    --text-3:          rgba(235,235,245,0.32);
+    --accent:          #0a84ff;
+    --accent-dark:     #409cff;
+    --ok:              #32d74b;
+    --ok-dim:          rgba(50,215,75,0.12);
+    --shadow-window:   0 24px 80px rgba(0,0,0,0.60), 0 4px 20px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(255,255,255,0.06);
+    --shadow-card:     0 0 0 0.5px var(--border-up);
+    --disabled-gray:   #4a4a4a;
+    --inactive-gray:   #5a5a5c;
+  }
+}
+
+/* ─── Layout ─── */
+html, body {
+  min-height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 16px 60px;
+  min-height: 100vh;
+}
+
+/* ─── Window ─── */
+.window {
+  width: 100%;
+  max-width: 596px;
+  border-radius: var(--r-xl);
+  background: var(--window-bg);
+  backdrop-filter: blur(48px) saturate(1.7);
+  -webkit-backdrop-filter: blur(48px) saturate(1.7);
+  box-shadow: var(--shadow-window);
+  overflow: hidden;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Title bar ─── */
+.titlebar {
+  position: relative;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface-up);
+  user-select: none;
+  cursor: grab;
+  flex-shrink: 0;
+}
+.titlebar:active { cursor: grabbing; }
+
+/* ─── Traffic Lights ─── */
+.traffic-lights {
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.traffic-light {
+  border-radius: 100%;
+  padding: 0;
+  height: 12px;
+  width: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+  margin-right: 8px;
+  background-color: var(--disabled-gray);
+  position: relative;
+  outline: none;
+  cursor: default;
+  transition: background-color 0.2s;
+}
+.traffic-light:last-child { margin-right: 0; }
+
+.window.focused .traffic-light-close { background-color: var(--close-red); }
+.window.focused .traffic-light-minimize { background-color: var(--minimize-yellow); }
+.window.focused .traffic-light-maximize { background-color: var(--maximize-green); }
+
+.traffic-light::before,
+.traffic-light::after {
+  content: '';
+  position: absolute;
+  border-radius: 1px;
+  left: 0; top: 0; right: 0; bottom: 0;
+  margin: auto;
+  visibility: hidden;
+}
+
+.window.focused .traffic-lights:hover .traffic-light::before,
+.window.focused .traffic-lights:hover .traffic-light::after,
+.window.focused .traffic-lights:active .traffic-light::before,
+.window.focused .traffic-lights:active .traffic-light::after {
+  visibility: visible;
+}
+
+.traffic-light-close::before,
+.traffic-light-close::after {
+  background-color: var(--close-red-icon);
+  width: 8px; height: 1px;
+}
+.traffic-light-close::before { transform: rotate(45deg); }
+.traffic-light-close::after { transform: rotate(-45deg); }
+.traffic-light-close:active:hover::before,
+.traffic-light-close:active:hover::after { background-color: var(--close-red-icon-active); }
+
+.traffic-light-minimize::before {
+  background-color: var(--minimize-yellow-icon);
+  width: 8px; height: 1px;
+}
+.traffic-light-minimize:active:hover::before { background-color: var(--minimize-yellow-icon-active); }
+
+.traffic-light-maximize::before {
+  background-color: var(--maximize-green-icon);
+  width: 6px; height: 6px;
+}
+.traffic-light-maximize::after {
+  background-color: var(--maximize-green);
+  width: 10px; height: 2px;
+  transform: rotate(45deg);
+}
+.traffic-light-maximize:active:hover::before { background-color: var(--maximize-green-icon-active); }
+.traffic-light-maximize:active:hover::after { background-color: var(--maximize-green-active); }
+
+.tb-title {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font-size: 13px; font-weight: 600; letter-spacing: -.015em;
+  color: var(--text); opacity: .75;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.window:not(.focused) .tb-title { opacity: 0.4; }
+
+/* ─── Content ─── */
+.content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.content::-webkit-scrollbar { width: 8px; }
+.content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── Drop zone ─── */
+.zone {
+  border: 1.5px dashed var(--border-up);
+  border-radius: var(--r-lg);
+  padding: 44px 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: var(--surface-down);
+  outline: none;
+}
+.zone:hover, .zone.over {
+  border-color: var(--accent);
+  background: rgba(0,122,255,.06);
+}
+@media (prefers-color-scheme: dark) {
+  .zone:hover, .zone.over { background: rgba(10,132,255,.09); }
+}
+.zone:focus-visible { box-shadow: 0 0 0 3px rgba(0,122,255,.35); }
+
+.window:not(.focused) .zone:hover,
+.window:not(.focused) .zone.over {
+  border-color: var(--inactive-gray);
+  background: rgba(200, 200, 200, 0.08);
+}
+.window:not(.focused) .zone:focus-visible { 
+  box-shadow: 0 0 0 3px rgba(200, 200, 200, 0.35); 
+}
+
+.zone-icon {
+  width: 56px; height: 56px;
+  margin: 0 auto 18px;
+  opacity: .28;
+  transition: transform .2s, opacity .2s;
+}
+.zone.over .zone-icon { transform: scale(1.12); opacity: .5; }
+
+.zone-title {
+  font-size: 15px; font-weight: 600; letter-spacing: -.02em;
+  color: var(--text); margin-bottom: 5px;
+}
+.zone-sub {
+  font-size: 12px; color: var(--text-2); margin-bottom: 22px; line-height: 1.5;
+}
+
+/* ─── Buttons ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 15px;
+  border-radius: var(--r-sm); border: none;
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  letter-spacing: -.01em;
+  cursor: pointer; transition: all .14s;
+  text-decoration: none; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: var(--accent-fg); }
+.btn-primary:hover  { background: var(--accent-dark); }
+.btn-primary:active { transform: scale(.97); }
+
+.btn-ghost {
+  background: var(--surface-up);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+.btn-ghost:hover  { background: var(--surface); }
+.btn-ghost:active { transform: scale(.97); }
+
+.btn-xs { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
+
+.window:not(.focused) .btn-primary { background-color: var(--inactive-gray); }
+
+/* ─── File card (preview row) ─── */
+.file-card {
+  display: flex; align-items: center; gap: 13px;
+  background: var(--surface-up);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-card);
+}
+.file-card canvas { border-radius: 10px; flex-shrink: 0; }
+.fc-name {
+  font-size: 13px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--text); margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fc-dim { font-size: 11px; color: var(--text-2); }
+
+/* ─── Status line ─── */
+.status-line {
+  font-size: 12px; color: var(--text-2);
+  margin-bottom: 13px; letter-spacing: -.005em;
+}
+
+/* ─── Size grid ─── */
+.size-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+@media (max-width: 460px) {
+  .size-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.size-card {
+  background: var(--surface-up);
+  border-radius: var(--r-md);
+  padding: 10px 6px 9px;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow .25s, transform .3s;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  cursor: pointer;
+}
+.size-card:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 0 0 0.5px var(--border-up); 
+}
+
+.size-card.done { 
+  box-shadow: 0 0 0 1.5px var(--ok), 0 0 0 4px var(--ok-dim); 
+}
+.size-card.done:hover {
+  box-shadow: 0 0 0 1.5px var(--ok), 0 0 0 4px var(--ok-dim), 0 4px 12px rgba(48,184,78,0.15);
+}
+
+.window:not(.focused) .size-card.done { 
+  box-shadow: 0 0 0 1.5px var(--inactive-gray), 0 0 0 4px rgba(200, 200, 200, 0.15); 
+}
+
+/* Premium Pop-in Animation */
+.size-card.hidden {
+  opacity: 0;
+  transform: translateY(15px) scale(0.85);
+}
+.size-card.enter {
+  animation: cardPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes cardPopIn {
+  0% { opacity: 0; transform: translateY(15px) scale(0.85); }
+  60% { opacity: 1; transform: translateY(0) scale(1.05); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Shake Animation for last selected card */
+.size-card.shake {
+  animation: shake 0.3s ease-in-out;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.icon-wrap {
+  overflow: hidden;
+  background: var(--surface-down);
+  flex-shrink: 0;
+  margin-bottom: 7px;
+  border-radius: 9px;
+}
+
+.sc-px   { font-size: 12px; font-weight: 600; letter-spacing: -.015em; color: var(--text); margin-bottom: 2px; }
+.sc-role { font-size: 8.5px; color: var(--text-3); line-height: 1.35; margin-bottom: 3px; }
+.sc-st   { font-size: 10px; color: var(--text-3); }
+.size-card.done .sc-st { color: var(--ok); animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.window:not(.focused) .size-card.done .sc-st { color: var(--inactive-gray); }
+
+/* ─── Download row ─── */
+.dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 13px; }
+
+/* ─── Padding control row ─── */
+.pad-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surface-up);
+  border-radius: var(--r-md);
+  padding: 11px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
+  font-size: 12px; color: var(--text-2);
+  letter-spacing: -.005em;
+}
+.pad-row label { display: inline-flex; align-items: center; gap: 7px;
+  color: var(--text); font-weight: 500; cursor: pointer; user-select: none; }
+.pad-row input[type=checkbox] {
+  width: 14px; height: 14px; accent-color: var(--accent);
+  cursor: pointer; margin: 0;
+}
+.pad-slider { flex: 1; min-width: 120px; height: 4px; -webkit-appearance: none; appearance: none;
+  background: var(--surface-down); border-radius: 2px; outline: none; cursor: pointer; }
+.pad-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.pad-slider::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.pad-val {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--text); min-width: 36px; text-align: right;
+  background: var(--surface-down); padding: 2px 7px; border-radius: 5px;
+}
+
+.window:not(.focused) .pad-row input[type=checkbox] { accent-color: var(--inactive-gray); }
+.window:not(.focused) .pad-slider::-webkit-slider-thumb { background: var(--inactive-gray); }
+.window:not(.focused) .pad-slider::-moz-range-thumb { background: var(--inactive-gray); }
+
+/* ─── Hidden ─── */
+#res { display: none; }
+</style>
+</head>
+<body>
+
+<div class="window focused">
+
+  <!-- Title bar -->
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <button class="traffic-light traffic-light-close" id="close"></button>
+      <button class="traffic-light traffic-light-minimize" id="minimize"></button>
+      <button class="traffic-light traffic-light-maximize" id="maximize"></button>
+    </div>
+    <span class="tb-title">Icon Converter</span>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <input id="fi" type="file" accept="image/png,image/jpeg" style="display:none">
+
+    <!-- Drop zone -->
+    <div id="zone" class="zone" role="button" tabindex="0" aria-label="Drop zone for icon PNG">
+      <svg class="zone-icon" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="7" y="11" width="42" height="36" rx="7" stroke="currentColor" stroke-width="2.2"/>
+        <path d="M28 21v16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M21 30l7 7 7-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <p class="zone-title">Drop your app icon here</p>
+      <p class="zone-sub">PNG or JPEG · 1024 × 1024 source recommended<br>Generates all macOS icon sizes</p>
+      <button id="browse-btn" class="btn btn-primary">Browse files</button>
+    </div>
+
+    <!-- Results panel -->
+    <div id="res">
+
+      <!-- File info row -->
+      <div class="file-card">
+        <canvas id="prev" width="44" height="44" style="border-radius:10px;"></canvas>
+        <div style="flex:1;min-width:0;">
+          <p class="fc-name" id="fname"></p>
+          <p class="fc-dim"  id="fdim"></p>
+        </div>
+        <button id="chg-btn" class="btn btn-ghost btn-xs">Change</button>
+      </div>
+
+      <p id="stline" class="status-line"></p>
+
+      <!-- 6-column preview grid -->
+      <div id="sgrid" class="size-grid"></div>
+
+      <!-- macOS padding control -->
+      <div class="pad-row">
+        <label>
+          <input type="checkbox" id="pad-on" checked>
+          macOS padding
+        </label>
+        <input type="range" id="pad-pct" class="pad-slider" min="0" max="12" step="0.5" value="8">
+        <span class="pad-val" id="pad-val">8.0%</span>
+      </div>
+
+      <!-- Download buttons -->
+      <div id="dlrow" class="dl-row" style="display:none;"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+'use strict';
+let src = null, pngs = {};
+
+const win = document.querySelector('.window');
+const zone = document.getElementById('zone');
+const res = document.getElementById('res');
+const fi = document.getElementById('fi');
+
+// Center window initially
+function centerWindow() {
+  let left = (window.innerWidth - win.offsetWidth) / 2;
+  let top = 40;
+  if (left < 0) left = 0;
+  win.style.left = left + 'px';
+  win.style.top = top + 'px';
+}
+window.addEventListener('resize', () => {
+  let left = parseInt(win.style.left) || 0;
+  let top = parseInt(win.style.top) || 0;
+  if (left > window.innerWidth - win.offsetWidth) left = window.innerWidth - win.offsetWidth;
+  if (top > window.innerHeight - win.offsetHeight) top = window.innerHeight - win.offsetHeight;
+  if (left < 0) left = 0;
+  if (top < 0) top = 0;
+  win.style.left = left + 'px';
+  win.style.top = top + 'px';
+});
+centerWindow();
+
+// ── Window Focus State ─────────────────────────────────────────────────────
+document.addEventListener('mousedown', (e) => {
+  if (win.contains(e.target)) {
+    win.classList.add('focused');
+  } else {
+    win.classList.remove('focused');
+  }
+});
+
+// ── Make Window Draggable (Strict Boundaries) ──────────────────────────────
+const titlebar = document.querySelector('.titlebar');
+let isDragging = false, dragStartX = 0, dragStartY = 0, initialLeft = 0, initialTop = 0;
+
+titlebar.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.traffic-lights')) return;
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialLeft = win.offsetLeft;
+  initialTop = win.offsetTop;
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  
+  let newLeft = initialLeft + e.clientX - dragStartX;
+  let newTop = initialTop + e.clientY - dragStartY;
+
+  const maxLeft = window.innerWidth - win.offsetWidth;
+  const maxTop = window.innerHeight - win.offsetHeight;
+
+  if (newLeft < 0) newLeft = 0;
+  if (newTop < 0) newTop = 0;
+  if (newLeft > maxLeft) newLeft = maxLeft;
+  if (newTop > maxTop) newTop = maxTop;
+
+  win.style.left = newLeft + 'px';
+  win.style.top = newTop + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  isDragging = false;
+  document.body.style.userSelect = '';
+});
+
+// ── Sizes to generate ──────────────────────────────────────────────────────
+const SIZES = [32, 64, 128, 256, 512, 1024];
+const ROLE_LABEL = {
+  32:   '16pt @2×',
+  64:   '32pt @2×',
+  128:  '128 pt',
+  256:  '256 pt',
+  512:  '512 pt',
+  1024: '512pt @2×',
+};
+
+const ICNS_CHUNKS = [
+  [128,  'ic07'], [256,  'ic08'], [512,  'ic09'], [1024, 'ic10'],
+  [32,   'ic11'], [64,   'ic12'], [256,  'ic13'], [512,  'ic14'],
+];
+
+const ICONSET = [
+  [32,   'icon_16x16@2x.png'], [32,   'icon_32x32.png'], [64,   'icon_32x32@2x.png'],
+  [128,  'icon_128x128.png'], [256,  'icon_128x128@2x.png'], [256,  'icon_256x256.png'],
+  [512,  'icon_256x256@2x.png'], [512,  'icon_512x512.png'], [1024, 'icon_512x512@2x.png'],
+];
+
+// ── DOM wiring ─────────────────────────────────────────────────────────────
+document.getElementById('browse-btn').addEventListener('click', e => { e.stopPropagation(); fi.click(); });
+document.getElementById('chg-btn').addEventListener('click', resetTool);
+fi.addEventListener('change', () => fi.files[0] && loadFile(fi.files[0]));
+
+zone.addEventListener('click', () => fi.click());
+zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fi.click(); });
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('over'); });
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+// ── Animation Logic (Extend / Collapse) ─────────────────────────────────────
+function getWindowHeight(targetEl) {
+  const otherEl = targetEl.id === 'res' ? zone : res;
+  const otherDisplay = otherEl.style.display;
+  const myDisplay = targetEl.style.display;
+  const myPos = targetEl.style.position;
+  const myVis = targetEl.style.visibility;
+  const winHeight = win.style.height;
+
+  otherEl.style.display = 'none';
+  targetEl.style.display = 'block';
+  targetEl.style.visibility = 'hidden';
+  targetEl.style.position = 'static';
+  win.style.height = 'auto';
+
+  const h = win.scrollHeight;
+
+  win.style.height = winHeight;
+  targetEl.style.display = myDisplay;
+  targetEl.style.visibility = myVis;
+  targetEl.style.position = myPos;
+  otherEl.style.display = otherDisplay;
+
+  return h;
+}
+
+function animateTransition(showEl, hideEl, onComplete) {
+  const startH = win.offsetHeight;
+  const startTop = win.offsetTop;
+  const centerY = startTop + startH / 2;
+
+  const targetH = getWindowHeight(showEl);
+  let targetTop = centerY - targetH / 2;
+
+  const maxTop = window.innerHeight - targetH;
+  if (targetTop < 0) targetTop = 0;
+  if (targetTop > maxTop) targetTop = maxTop;
+
+  hideEl.style.position = 'absolute';
+  hideEl.style.left = '20px';
+  hideEl.style.right = '20px';
+  hideEl.style.top = '68px';
+
+  showEl.style.position = 'absolute';
+  showEl.style.left = '20px';
+  showEl.style.right = '20px';
+  showEl.style.top = '68px';
+  showEl.style.display = 'block';
+  showEl.style.opacity = '0';
+
+  showEl.animate([
+    { opacity: 0 },
+    { opacity: 0, offset: 0.4 },
+    { opacity: 1 }
+  ], { duration: 450, easing: 'ease-in-out' });
+
+  const hideAnim = hideEl.animate([
+    { opacity: 1 },
+    { opacity: 0, offset: 0.6 },
+    { opacity: 0 }
+  ], { duration: 450, easing: 'ease-in-out' });
+
+  win.animate([
+    { height: startH + 'px', top: startTop + 'px' },
+    { height: targetH + 'px', top: targetTop + 'px' }
+  ], {
+    duration: 450,
+    easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)'
+  }).onfinish = () => {
+    win.style.height = targetH + 'px';
+    win.style.top = targetTop + 'px';
+  };
+
+  hideAnim.onfinish = () => {
+    hideEl.style.display = 'none';
+    hideEl.style.position = '';
+    hideEl.style.left = '';
+    hideEl.style.right = '';
+    hideEl.style.top = '';
+
+    showEl.style.position = '';
+    showEl.style.left = '';
+    showEl.style.right = '';
+    showEl.style.top = '';
+    showEl.style.opacity = '';
+
+    if (onComplete) onComplete();
+  };
+}
+
+// ── File load ──────────────────────────────────────────────────────────────
+function loadFile(f) {
+  const url = URL.createObjectURL(f);
+  const img = new Image();
+  img.onload = () => {
+    src = img;
+    const ctx = document.getElementById('prev').getContext('2d');
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    const s = Math.min(img.width, img.height);
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 44, 44);
+    document.getElementById('fname').textContent = f.name;
+    const warn = (img.width < 512 || img.height < 512) ? ' · ⚠ small source' : '';
+    document.getElementById('fdim').textContent =
+      `${img.width} × ${img.height} px  ·  ${(f.size / 1024).toFixed(0)} KB${warn}`;
+
+    generate();
+    animateTransition(res, zone);
+  };
+  img.onerror = () => alert('Could not load image — please try a PNG or JPEG file.');
+  img.src = url;
+}
+
+function resetTool() {
+  src = null; pngs = {};
+  document.getElementById('sgrid').innerHTML = '';
+  document.getElementById('dlrow').style.display = 'none';
+  fi.value = '';
+
+  animateTransition(zone, res);
+}
+
+// ── Resize: multi-step halving for sharpness ───────────────────────────────
+function resizeTo(sz, padRatio) {
+  const raw = Math.min(src.width, src.height);
+  const sx = (src.width - raw) / 2, sy = (src.height - raw) / 2;
+  const initial = Math.min(1024, raw);
+  const pad = Math.floor(initial * (padRatio || 0));
+  const artwork = initial - 2 * pad;
+
+  let cur = document.createElement('canvas');
+  let curSz = initial;
+  cur.width = cur.height = curSz;
+  const c0 = cur.getContext('2d');
+  c0.imageSmoothingEnabled = true; c0.imageSmoothingQuality = 'high';
+  c0.drawImage(src, sx, sy, raw, raw, pad, pad, artwork, artwork);
+
+  while (curSz > sz * 2) {
+    const ns = Math.round(curSz / 2);
+    const nx = document.createElement('canvas');
+    nx.width = nx.height = ns;
+    const nc = nx.getContext('2d');
+    nc.imageSmoothingEnabled = true; nc.imageSmoothingQuality = 'high';
+    nc.drawImage(cur, 0, 0, ns, ns);
+    cur = nx; curSz = ns;
+  }
+  if (curSz === sz) return cur;
+
+  const fin = document.createElement('canvas');
+  fin.width = fin.height = sz;
+  const fc = fin.getContext('2d');
+  fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
+  fc.drawImage(cur, 0, 0, sz, sz);
+  return fin;
+}
+
+function toPNG(canvas) {
+  return new Promise(resolve =>
+    canvas.toBlob(b => b.arrayBuffer().then(ab => resolve(new Uint8Array(ab))), 'image/png')
+  );
+}
+
+// ── Generate all sizes ─────────────────────────────────────────────────────
+async function generate() {
+  const grid = document.getElementById('sgrid');
+  grid.innerHTML = ''; pngs = {};
+  document.getElementById('stline').textContent = 'Generating icon sizes…';
+
+  const dlrow = document.getElementById('dlrow');
+  dlrow.style.display = 'flex';
+  dlrow.innerHTML = `<button class="btn btn-primary" disabled>Generating...</button>`;
+
+  // Build all 6 card skeletons immediately (but hidden) so the container height is accurate
+  for (const sz of SIZES) {
+    const dp = Math.min(sz, 52);
+    const card = document.createElement('div');
+    card.id = `c${sz}`; 
+    card.className = 'size-card hidden'; // Starts hidden
+    card.innerHTML = `
+      <div class="icon-wrap" style="width:${dp}px;height:${dp}px;border-radius:${Math.round(dp*.175)}px;">
+        <canvas id="t${sz}" width="${dp}" height="${dp}"></canvas>
+      </div>
+      <p class="sc-px">${sz}<span style="font-size:9px;font-weight:400;color:var(--text-3);"> px</span></p>
+      <p class="sc-role">${ROLE_LABEL[sz]}</p>
+      <p id="s${sz}" class="sc-st">…</p>`;
+    grid.appendChild(card);
+
+    // Add click listener for toggling selection
+    card.addEventListener('click', () => {
+      const isDone = card.classList.contains('done');
+      const doneCards = grid.querySelectorAll('.size-card.done');
+      
+      if (isDone) {
+        if (doneCards.length > 1) {
+          // Deselect
+          card.classList.remove('done');
+          card.querySelector('.sc-st').textContent = ''; // Removed the empty circle, leaving it blank
+        } else {
+          // Shake to indicate it can't be deselected
+          card.classList.remove('shake');
+          void card.offsetWidth; // trigger reflow
+          card.classList.add('shake');
+        }
+      } else {
+        // Select
+        card.classList.add('done');
+        card.querySelector('.sc-st').textContent = '✓';
+      }
+    });
+  }
+
+  const padOn  = document.getElementById('pad-on').checked;
+  const padPct = parseFloat(document.getElementById('pad-pct').value) || 0;
+  const padRatio = padOn ? (padPct / 100) : 0;
+
+  // Process and animate each one by one
+  for (let i = 0; i < SIZES.length; i++) {
+    const sz = SIZES[i];
+    const canvas = resizeTo(sz, padRatio);
+    pngs[sz] = await toPNG(canvas);
+
+    const dp = Math.min(sz, 52);
+    const tc = document.getElementById(`t${sz}`).getContext('2d');
+    tc.imageSmoothingEnabled = true; tc.imageSmoothingQuality = 'high';
+    tc.drawImage(canvas, 0, 0, dp, dp);
+
+    const sEl = document.getElementById(`s${sz}`);
+    sEl.textContent = '✓'; 
+    
+    const card = document.getElementById(`c${sz}`);
+    card.classList.add('done');
+    card.classList.remove('hidden');
+    card.classList.add('enter'); // Trigger premium pop-in animation
+
+    // Wait 250ms before processing the next card for that staggered feel
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  document.getElementById('stline').textContent = `All ${SIZES.length} sizes ready — choose your export:`;
+
+  dlrow.innerHTML = `
+    <button id="bicns" class="btn btn-primary">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.5 1.5v8M3.5 6.5l3 3 3-3M1.5 11.5h10"/>
+      </svg>
+      AppIcon.icns
+    </button>
+    <button id="bzip" class="btn btn-ghost">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1.5" y="1.5" width="10" height="10" rx="2.5"/>
+        <path d="M4.5 1.5v4h4v-4"/>
+      </svg>
+      Iconset ZIP
+    </button>`;
+  document.getElementById('bicns').addEventListener('click', dlICNS);
+  document.getElementById('bzip').addEventListener('click', dlZip);
+}
+
+// ── Padding controls ───────────────────────────────────────────────────────
+const padOn  = document.getElementById('pad-on');
+const padPct = document.getElementById('pad-pct');
+const padVal = document.getElementById('pad-val');
+function updatePadVal() { padVal.textContent = parseFloat(padPct.value).toFixed(1) + '%'; }
+function regenIfReady() { if (src) generate(); }
+padOn.addEventListener('change', () => { padPct.disabled = !padOn.checked; regenIfReady(); });
+padPct.addEventListener('input', () => { updatePadVal(); regenIfReady(); });
+padPct.disabled = !padOn.checked;
+updatePadVal();
+
+// ── Build ICNS binary ──────────────────────────────────────────────────────
+function buildICNS() {
+  const enc = new TextEncoder();
+  const chunks = ICNS_CHUNKS.map(([sz, tag]) => ({
+    tag, data: pngs[sz], totalSize: 8 + pngs[sz].length,
+  }));
+
+  const tocDataLen = chunks.length * 8;
+  const tocChunkSize = 8 + tocDataLen;
+
+  let total = 8 + tocChunkSize;
+  for (const c of chunks) total += c.totalSize;
+
+  const buf = new ArrayBuffer(total);
+  const dv  = new DataView(buf);
+  const u8  = new Uint8Array(buf);
+  let off = 0;
+
+  u8.set(enc.encode('icns'), off); off += 4;
+  dv.setUint32(off, total, false); off += 4;
+
+  u8.set(enc.encode('TOC '), off); off += 4;
+  dv.setUint32(off, tocChunkSize, false); off += 4;
+  for (const c of chunks) {
+    u8.set(enc.encode(c.tag), off); off += 4;
+    dv.setUint32(off, c.totalSize, false); off += 4;
+  }
+
+  for (const c of chunks) {
+    u8.set(enc.encode(c.tag), off); off += 4;
+    dv.setUint32(off, c.totalSize, false); off += 4;
+    u8.set(c.data, off); off += c.data.length;
+  }
+
+  return buf;
+}
+
+function dlICNS() {
+  const blob = new Blob([buildICNS()], { type: 'application/octet-stream' });
+  trigger(blob, 'AppIcon.icns');
+}
+
+async function dlZip() {
+  if (typeof JSZip === 'undefined') {
+    alert('ZIP library not loaded yet — wait a moment and try again.'); return;
+  }
+  const zip    = new JSZip();
+  const folder = zip.folder('AppIcon.iconset');
+  for (const [sz, name] of ICONSET) if (pngs[sz]) folder.file(name, pngs[sz]);
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  trigger(blob, 'AppIcon.iconset.zip');
+}
+
+function trigger(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 15000);
+}
+</script>
+</body>
+</html>
