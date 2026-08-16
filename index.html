@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IconVerter</title>
+<title>Icon Converter — macOS .icns</title>
 <style>
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -144,10 +144,24 @@ body {
 }
 .traffic-light:last-child { margin-right: 0; }
 
-.window.focused .traffic-light-close { background-color: var(--close-red); }
-.window.focused .traffic-light-minimize { background-color: var(--minimize-yellow); }
-.window.focused .traffic-light-maximize { background-color: var(--maximize-green); }
+/* Show colors when window is focused OR hovering/active on lights */
+.window.focused .traffic-light-close,
+.traffic-lights:hover .traffic-light-close,
+.traffic-lights:active .traffic-light-close { 
+  background-color: var(--close-red); 
+}
+.window.focused .traffic-light-minimize,
+.traffic-lights:hover .traffic-light-minimize,
+.traffic-lights:active .traffic-light-minimize { 
+  background-color: var(--minimize-yellow); 
+}
+.window.focused .traffic-light-maximize,
+.traffic-lights:hover .traffic-light-maximize,
+.traffic-lights:active .traffic-light-maximize { 
+  background-color: var(--maximize-green); 
+}
 
+/* Symbols hidden by default */
 .traffic-light::before,
 .traffic-light::after {
   content: '';
@@ -158,13 +172,15 @@ body {
   visibility: hidden;
 }
 
-.window.focused .traffic-lights:hover .traffic-light::before,
-.window.focused .traffic-lights:hover .traffic-light::after,
-.window.focused .traffic-lights:active .traffic-light::before,
-.window.focused .traffic-lights:active .traffic-light::after {
+/* Show symbols when hovering/active on lights */
+.traffic-lights:hover .traffic-light::before,
+.traffic-lights:hover .traffic-light::after,
+.traffic-lights:active .traffic-light::before,
+.traffic-lights:active .traffic-light::after {
   visibility: visible;
 }
 
+/* Symbol styles */
 .traffic-light-close::before,
 .traffic-light-close::after {
   background-color: var(--close-red-icon);
@@ -440,7 +456,7 @@ body {
       <button class="traffic-light traffic-light-minimize" id="minimize"></button>
       <button class="traffic-light traffic-light-maximize" id="maximize"></button>
     </div>
-    <span class="tb-title">IconVerter</span>
+    <span class="tb-title">Icon Converter</span>
   </div>
 
   <!-- Content -->
